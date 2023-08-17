@@ -1,0 +1,90 @@
+#!/bin/bash
+APP="Jiggle"
+ICON="icon/icon.svg"
+ICON_INACTIVE="icon/icon_inactive.svg"
+
+appDir="${APP}.app"
+rm -rf $appDir
+mkdir -p "${APP}.app/Contents/"{MacOS,Resources}
+rsDir="${appDir}/Contents/Resources"
+appLoc="${appDir}/Contents/MacOS/${APP}"
+
+cat >"${appDir}/Contents/Info.plist" << END
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleGetInfoString</key>
+  <string>$APP</string>
+  <key>CFBundleExecutable</key>
+  <string>$APP</string>
+  <key>CFBundleIdentifier</key>
+  <string>com.example.www</string>
+  <key>CFBundleName</key>
+  <string>$APP</string>
+  <key>CFBundleIconFile</key>
+  <string>icon.icns</string>
+  <key>CFBundleShortVersionString</key>
+  <string>0.01</string>
+  <key>CFBundleInfoDictionaryVersion</key>
+  <string>6.0</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>IFMajorVersion</key>
+  <integer>0</integer>
+  <key>IFMinorVersion</key>
+  <integer>1</integer>
+  <key>NSHighResolutionCapable</key><true/>
+  <key>NSSupportsAutomaticGraphicsSwitching</key><true/>
+  <key>LSMinimumSystemVersion</key>
+  <string>10.10</string>
+  <key>NSPrincipalClass</key>
+  <string>NSApplication</string>
+  <key>LSUIElement</key>
+  <string>1</string>
+</dict>
+</plist>
+END
+
+rm -rf build
+mkdir build
+
+#qlmanage -z -t -s 1024 -o ./build "$ICON"
+pngFile="./build/$(basename $ICON).png"
+convert -background none "$ICON" -resize 1024x1024 -sharpen 1 $pngFile
+pngFileInactive="./build/$(basename $ICON_INACTIVE).png"
+convert -background none "$ICON_INACTIVE" -resize 1024x1024 -sharpen 1 $pngFileInactive
+
+iconDir="./build/icon.iconset"
+
+mkdir $iconDir
+
+sips -z 16 16 "$pngFile" --out $iconDir/icon_16x16.png
+sips -z 32 32 "$pngFile" --out $iconDir/icon_16x16@2x.png
+cp $iconDir/icon_16x16@2x.png $iconDir/icon_32x32.png
+sips -z 64 64 "$pngFile" --out $iconDir/icon_32x32@2x.png
+sips -z 128 128 "$pngFile" --out $iconDir/icon_128x128.png
+sips -z 256 256 "$pngFile" --out $iconDir/icon_128x128@2x.png
+cp $iconDir/icon_128x128@2x.png $iconDir/icon_256x256.png
+sips -z 512 512 "$pngFile" --out $iconDir/icon_256x256@2x.png
+cp $iconDir/icon_256x256@2x.png $iconDir/icon_512x512.png
+sips -z 1024 1024 "$pngFile" --out $iconDir/icon_512x512@2x.png
+
+sips -z 32 32 "$pngFileInactive" --out $iconDir/icon_inactive32x32.png
+sips -z 64 64 "$pngFileInactive" --out $iconDir/icon_inactive32x32@2x.png
+
+# make MacOS icon
+iconutil -c icns $iconDir
+cp ./build/icon.icns $rsDir
+
+# make embedded tray icon (TODO: try just using the icon.icns file)
+tiffutil -cathidpicheck $iconDir/icon_32x32.png $iconDir/icon_32x32@2x.png -out ./build/macicon.tiff
+cp $iconDir/icon_32x32@2x.png ./build/othersicon.png
+
+tiffutil -cathidpicheck $iconDir/icon_inactive32x32.png $iconDir/icon_inactive32x32@2x.png -out ./build/maciconinactive.tiff
+cp $iconDir/icon_inactive32x32@2x.png ./build/othersiconinactive.png
+
+# build app
+go build -o $appLoc
+
+#rm -rf build
